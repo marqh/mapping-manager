@@ -23,6 +23,7 @@
 
 {% block head %}
 <script type="text/javascript" src="{{ STATIC_URL }}jquery-1.7.2.min.js"></script>
+<script type="text/javascript" src="{{ STATIC_URL }}jquery.autocomplete.js"></script>
 <script type="text/javascript">
 
 $(document).ready(function(){
@@ -57,6 +58,21 @@ $(document).ready(function(){
         $('#action').hide()
         $('#search').css('background','');
     }
+
+    var own = $('#id_form-0-owners').autocomplete({
+        lookup: [{{ org_lookup }}],
+        width: 600,
+    })
+    var watch = $('#id_form-0-watchers').autocomplete({
+        lookup: [{{ people_lookup }}],
+        width: 600,
+    })
+    var edit = $('#id_form-0-editor').autocomplete({
+        lookup: [{{ people_lookup }}],
+        width: 600,
+    })
+
+
 })
 </script>
 

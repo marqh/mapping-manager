@@ -107,8 +107,11 @@ class Provenance(BaseShard):
     version = models.CharField(max_length=20)
     comment = models.CharField(max_length=200)
     reason = models.CharField(max_length=50)
-    owners = models.ManyToManyField(Contacts, 
-        through='ProvenanceContacts')
+#    owners = models.ManyToManyField(Contacts, 
+#        through='ProvenanceContacts')
+    owners = models.CharField(max_length=64)
+    watchers = models.CharField(max_length=64)
+    editor = models.CharField(max_length=64)
     previous = models.CharField(max_length=32)
 
 

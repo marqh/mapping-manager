@@ -81,6 +81,8 @@ def newshard(request, status, datatype):
             'detail' : 'Datatype: %s' % datatype,
             'read_only' : READ_ONLY,
             'formset' : formset,
+            'org_lookup' : mark_safe(','.join(['"%s"' % x for x in ['aa', 'bb', 'cc']])),
+            'people_lookup' : mark_safe(','.join(['"%s"' % x for x in ['aa', 'bb', 'cc']]))
             }) )
 
 def edit(request, status, datatype):
@@ -143,6 +145,8 @@ def edit(request, status, datatype):
             'formset' : formset,
             'read_only' : READ_ONLY,
             'error' : warning_msg,
+            'org_lookup' : ','.join(['aa', 'bb', 'cc']),
+            'people_lookup' : ','.join(['aa', 'bb', 'cc'])
             }) )
 
 def process_formset(formset, shard, status, datatype):

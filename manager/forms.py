@@ -80,7 +80,7 @@ class ProvenanceForm(forms.ModelForm):
     class Meta:
         model = Provenance
         # exclude = ('provenanceMD5', 'baseshardMD5', 'owners', 'version' )
-        exclude = ('owners', 'version')
+        exclude = ('version')
         widgets = {
             'standard_name' : forms.TextInput(attrs={'size' : 60}),
             'local_name' : forms.TextInput(attrs={'size' : 60}),
