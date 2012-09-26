@@ -23,6 +23,7 @@ class Prefixes(dict):
         'link'     : 'http://www.metarelate.net/metOcean/linkage/',
         'fcode'    : 'http://www-hc/~umdoc/pp_package_ibm_docs/fcodes/',
         'cf'       : 'http://cf-pcmdi.llnl.gov/documents/',
+        'mapman'   : 'http://www.metarelate.net/mapman#'
         }
         self.update(prefixd)
 

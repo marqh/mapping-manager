@@ -170,23 +170,24 @@ def process_formset(formset, shard, status, datatype):
         provMD5.update(data.get('reason'))
         provMD5.update(linkage)
 
-        deleteDataStr = '''
-            <%s> a iso19135:RegisterItem ;
-                metExtra:origin <%s> ;
-                cf:units "%s" ;
-                cf:name <%s> .
-        ''' % (
-            linkage,
-            origin,
-            data.get('unit'),
-            data.get('standard_name')
-        )
+        # deleteDataStr = '''
+        #     <%s> a iso19135:RegisterItem ;
+        #         metExtra:origin <%s> ;
+        #         cf:units "%s" ;
+        #         cf:name <%s> .
+        # ''' % (
+        #     linkage,
+        #     origin,
+        #     data.get('unit'),
+        #     data.get('standard_name')
+        # )
 
         insertDataStr = '''
             <%s> a iso19135:RegisterItem ;
                 metExtra:origin <%s> ;
                 cf:units "%s" ;
-                cf:name <%s> .
+                cf:name <%s> ;
+                metExtra:saveCache "True" .
         ''' % (
             linkage,
             origin,
@@ -204,7 +205,8 @@ def process_formset(formset, shard, status, datatype):
                 metExtra:hasLastEdit  "%s" ;
                 metExtra:hasComment   "%s" ;
                 metExtra:hasReason    "%s" ;
-                metExtra:link         <%s> .
+                metExtra:link         <%s> ;
+                metExtra:saveCache "True" .
         ''' % (
             '%s%s' % (pre.map, str(provMD5.hexdigest())),
             data.get('owner', 'None'),
@@ -218,15 +220,23 @@ def process_formset(formset, shard, status, datatype):
             linkage
         )
 
+        # qstr = '''
+        # DELETE DATA {
+        #     %s
+        # }
+        # INSERT DATA {
+        #     %s
+        #     %s
+        # }
+        # ''' % (deleteDataStr, insertDataStr, insertProvStr)
+
         qstr = '''
-        DELETE DATA {
-            %s
-        }
         INSERT DATA {
             %s
             %s
         }
-        ''' % (deleteDataStr, insertDataStr, insertProvStr)
+        ''' % (insertDataStr, insertProvStr)
+
 
         print '12>>>>', qstr
 
