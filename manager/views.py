@@ -270,6 +270,38 @@ def get_shard(shard, status, datatype):
         }
     } 
     ''' % (shard,)
+    qstr = '''
+    SELECT DISTINCT ?prov ?previous ?cfname ?unit ?canon_unit ?last_edit ?long_name ?comment ?reason ?status ?link
+    WHERE
+    {
+
+        ?link metExtra:origin <%s> ;
+              metExtra:long_name ?long_name ;
+              cf:units ?unit ;
+              cf:name ?cfname .
+        ?prov metExtra:link ?link .
+        ?prov metExtra:hasPrevious ?previous ;
+                metExtra:hasLastEdit ?last_edit ;
+                metExtra:hasComment ?comment ;
+                metExtra:hasStatus ?status ;
+                metExtra:hasReason ?reason .
+        OPTIONAL {
+
+            ?cfname cf:canonical_units ?canon_unit .
+        }
+
+        {
+          SELECT ?prov ?previous
+          WHERE
+          {
+
+           ?prov metExtra:hasPrevious ?previous . 
+           MINUS {?prov ^metExtra:hasPrevious+ ?prov}
+         
+          }  
+        }
+    } 
+    ''' % (shard,)
     results = query.run_query(qstr)
     return results
 
