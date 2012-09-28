@@ -21,15 +21,17 @@ from django.conf.urls.defaults import patterns, include, url
 
 import settings
 
+datatypes = 'stash|grib'
+
 urlpatterns = patterns('manager.views',
     url(r'^$', 'tasks', name='tasks'),
-    url(r'^list/(?P<status>(draft|proposed|approved|broken|deprecated))/$',
+    url(r'^list/(?P<datatype>(%s))/$' % datatypes,
         'list', name='list'),
-    url(r'^list/(?P<status>(draft|proposed|approved|broken|deprecated))/(?P<datatype>[^/]+)/$',
+    url(r'^list/(?P<datatype>(%s))/$' % datatypes,
         'listtype', name='listtype'),
-    url(r'^new/(?P<status>(draft|proposed|approved|broken|deprecated))/(?P<datatype>[^/]+)/$', 
+    url(r'^new/(?P<datatype>(%s)[^/]+)/$' % datatypes, 
         'newshard', name='newshard'),
-    url(r'^edit/(?P<status>(draft|proposed|approved|broken|deprecated))/(?P<datatype>[^/]+)/$', 
+    url(r'^edit/(?P<datatype>(%s)[^/]+)/$' % datatypes, 
         'edit', name='edit'),
     url(r'^map/(?P<hashval>[a-f0-9]{32})/', 'mapdisplay', name='mapdisplay'),
     url(r'^search/$', 'search', name='search'),

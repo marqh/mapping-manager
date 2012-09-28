@@ -83,10 +83,10 @@ def newshard(request, status, datatype):
             'formset' : formset,
             }) )
 
-def edit(request, status, datatype):
+def edit(request, datatype):
     shard = request.GET.get('ref', '')
     shard = urllib.unquote(shard).decode('utf8')
-    state = models.State(state=status)
+    #state = models.State(state=status)
     paths = shard.split('/')
     prefix = '/'.join(paths[:-2]) + '/'
     localname = paths[-2]
@@ -99,23 +99,25 @@ def edit(request, status, datatype):
     if request.method == 'POST':
         formset = ShardFormSet(request.POST)
         if formset.is_valid():
-            process_formset(formset, shard, status, datatype)
+            process_formset(formset, shard, datatype)
             return HttpResponseRedirect(
                 url_with_querystring(
-                    reverse('edit', kwargs={'status' : status, 'datatype' : datatype}),
+                    reverse('edit', kwargs={'datatype' : datatype}),
                     ref=shard))
         else:
             print formset.errors
     else:
-        ushardm = get_shard(shard, status, datatype)
+        ushardm = get_shard(shard, datatype)
         if len(ushardm) > 1:
             warning_msg = (
                 'Warning: '
-                '%s Data Shards with the same name at status "%s" found.' % (
-                    len(ushardm), status.upper()))
+                '%s Active Data Shards with the same name found.' % (
+                    len(ushardm)#, status.upper()
+                    ))
         initial_data_set = []
         for item in ushardm:
             data_set = {}
+            mapurl = item.get('prov')
             previousurl = item.get('previous')
             previouslabel = previousurl.split('/')[-1]
             data_set = dict(
@@ -137,9 +139,9 @@ def edit(request, status, datatype):
     return render_to_response('main.html',
         RequestContext(request, {
             'viewname' : 'Edit Shard',
-            'status' : 'Status: %s, datatype: %s' % (status.upper(), datatype),
+            #'status' : 'Status: %s, datatype: %s' % (status.upper(), datatype),
             'title' : 'Edit Shard: %s' % shard,
-            'detail' : 'Shard: %s' % shard,
+            'detail' : 'Shard: %s' % mapurl,#shard,
             'formset' : formset,
             'read_only' : READ_ONLY,
             'error' : warning_msg,
@@ -246,7 +248,7 @@ def process_formset(formset, shard, status, datatype):
         
 
 # what shall we do here for multiple cfnames?
-def get_shard(shard, status, datatype):
+def get_shard(shard, datatype):
     '''This returns the actual shard from the named graph in the triple-store.'''
     
     qstr = '''
@@ -344,12 +346,12 @@ def split_by_datatype(name):
     return name.split('.')[0]
 
 def split_by_type(item):
-    name = item.get('g').split('/')[3]
+    name = item.get('g').split('/')[2]
     return split_by_datatype(name)
 
-def split_by_status(item):
-    name = item.get('g').split('/')[2]
-    return name
+# def split_by_status(item):
+#     name = item.get('g').split('/')[2]
+#     return name
 
 def split_by_localname(item):
     name = item.get('g').split('/')[-1]
@@ -357,16 +359,16 @@ def split_by_localname(item):
 
 def tasks(request):
     '''Top-level view.
-    This provides a list of the known 'states' and a count of shards found within each.
+    This provides a list of the known 'data types' and  count of shards found within each.
     '''
     
-    state = models.State()
+    datatype = models.DataType()
     itemlist = []
-    resultsd = count_by_group(get_counts_by_graph(), split_by_status)
-    for item in state.get_states:
+    resultsd = count_by_group(get_counts_by_graph(), split_by_type)
+    for item in datatype.get_datatypes:
         name = item.lower()
         itemlist.append( {
-            'url' : reverse('list', kwargs={'status' : name}),
+            'url' : reverse('list', kwargs={'datatype' : name}),
             'label' : item, 
             'count' : resultsd.get(name, 0),
         } )
@@ -379,9 +381,9 @@ def tasks(request):
 def url_with_querystring(path, **kwargs):
     return path + '?' + urllib.urlencode(kwargs)
 
-def list(request, status):
+def list(request, datatype):
     '''First level of detail.
-    This view expands the chosen 'state' and displays all known subgraphs within it,
+    This view expands the chosen 'datatype' and displays all known subgraphs within it,
     along with counts of shards within each subgraph.
     '''
     
@@ -391,15 +393,15 @@ def list(request, status):
             GRAPH ?g { ?s ?p ?o } .
             FILTER( REGEX(str(?g), 'http://%s/') ) .
         }
-    ''' % (status.lower(), )
+    ''' % (datatype.lower(), )
     results = query.run_query(reportq)
     itemlist = []
-    count_results = get_counts_by_graph('http://%s/' % status.lower())
-    status_resultsd = count_by_group(count_results, split_by_status)
+    count_results = get_counts_by_graph('http://%s/' % datatype.lower())
+    datatype_resultsd = count_by_group(count_results, split_by_type)
     for item in results:
         url = reverse('listtype', kwargs={
-            'status' : status, 
-            'datatype' : split_by_localname(item) })
+            #'status' : status, 
+            'datatype' : datatype })
         itemlist.append({
             'url'   : url, 
             'label' : '%s' % item.get('g'), 
@@ -408,21 +410,21 @@ def list(request, status):
         })
     return render_to_response('lists.html',
         RequestContext(request, {
-            'title' : status.upper(),
+            'title' : datatype.upper(),
             'viewname' : 'List',
-            'status' : 'status: %s' % status.upper(),
+#            'status' : 'status: %s' % status.upper(),
             'itemlist' : sorted(itemlist, key=lambda x:x['label']),
             'read_only' : READ_ONLY,
-            'count' : 'Records: %s' % status_resultsd.get(status),
+            'count' : 'Records: %s' % datatype_resultsd.get(datatype),
             }) )
 
-def listtype(request, status, datatype):
+def listtype(request, datatype):
     '''Second level of detail.
     This view lists the shards actually contained within the named graph
     and display the count.
     '''
     
-    graph = 'http://%s/%s' % (status.lower(), datatype)
+    graph = 'http://%s' % (datatype)
     qstr = '''
         SELECT DISTINCT ?subject
         WHERE {
@@ -437,7 +439,7 @@ def listtype(request, status, datatype):
     for item in [x.get('subject') for x in results]:
         itemlist.append({
             'url'   : url_with_querystring(
-                        reverse('edit', kwargs={'status' : status, 'datatype' : datatype}),
+                        reverse('edit', kwargs={'datatype' : datatype}),
                         ref=item),
             'label' : item,
         })

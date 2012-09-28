@@ -48,6 +48,28 @@ class State(object):
     def get_states(self):
         return self.STATES
 
+class DataType(object):
+    DATATYPES = (
+        'STASH',
+        'GRIB'
+        )
+    def __init__(self, *args, **kwargs):
+        datatype = kwargs.get('datatype', None)
+        #super(State, self).__init__(*args, **kwargs)
+        self.datatype = None
+        if datatype is not None:
+            if datatype in [x.lower() for x in self.DATATYPES]:
+                self.datatype = datatype
+            else:
+                raise Exception('datatype not recognised')
+
+    def __repr__(self):
+        return self.datatype
+
+    @property
+    def get_datatypes(self):
+        return self.DATATYPES
+
 class StateTransition(object):
     fromstate = None
     tostate = None
