@@ -28,9 +28,9 @@ import hashlib
 
 import forms
 import models
-import query
+import fusekiQuery as query
 
-import prefixes
+import metOceanPrefixes as prefixes
 
 from settings import READ_ONLY
 

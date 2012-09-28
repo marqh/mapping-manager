@@ -22,7 +22,7 @@ import sys
 
 from models import BaseShard, State, Provenance
 
-import prefixes
+import metOceanPrefixes as prefixes
 
 from settings import READ_ONLY
 from django import forms
