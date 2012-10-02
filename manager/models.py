@@ -94,9 +94,9 @@ class StateTransition(object):
             return False
     
 
-class BaseShard(models.Model):
+class BaseRecord(models.Model):
     '''represents the linkage between Standard Name and a sub-classed RDF type'''
-    baseshardMD5 = models.CharField(max_length=32) 
+    baserecordMD5 = models.CharField(max_length=32) 
     metadata_element = models.CharField(
         null=True, blank=True, 
         max_length=100, choices=[(x,y) for x,y in prefixes.Prefixes().datalist]) 
@@ -122,7 +122,7 @@ class Contacts(models.Model):
         return u'%s - %s, %s' % (
             self.name, 'Watcher' if self.watcher else 'Owner', self.email)
 
-class Provenance(BaseShard):
+class Provenance(BaseRecord):
     provenanceMD5 = models.CharField(max_length=32) 
     last_edit = models.CharField(max_length=50)
     current_status = models.CharField(max_length=15)

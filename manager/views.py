@@ -58,25 +58,26 @@ def provenances(request):
     # report in column view
     pass
 
-def newshard(request, dataFormat, datatype):
-    ShardFormSet = formset_factory(forms.ProvenanceForm, extra=0)
+def newrecord(request, dataFormat, datatype):
+    '''form view to create a new record'''
+    RecordFormSet = formset_factory(forms.ProvenanceForm, extra=0)
     if request.method == 'POST':
-        formset = ShardFormSet(request.POST)
+        formset = RecordFormSet(request.POST)
         if formset.is_valid():
             pass
     else:
-        shard = request.GET.get('ref', '')
-        shard = urllib.unquote(shard).decode('utf8')
+        record = request.GET.get('ref', '')
+        record = urllib.unquote(record).decode('utf8')
 
-        formset = ShardFormSet(initial=[
+        formset = RecordFormSet(initial=[
             {
-#            'current_status' : status.lower(),
+            'current_status' : 'draft',
             'last_edit' : datetime.datetime.now(),
             }])
     return render_to_response('main.html',
         RequestContext(request, {
-            'title' : 'New shard',
-            'viewname' : 'New shard',
+            'title' : 'New record',
+            'viewname' : 'New record',
             #'status' : 'status: %s' % status.upper(),
             'detail' : 'Datatype: %s' % datatype,
             'read_only' : READ_ONLY,
@@ -84,45 +85,44 @@ def newshard(request, dataFormat, datatype):
             }) )
 
 def edit(request, dataFormat, datatype):
-    shard = request.GET.get('ref', '')
-    shard = urllib.unquote(shard).decode('utf8')
-    #state = models.State(state=status)
-    paths = shard.split('/')
+    record = request.GET.get('ref', '')
+    record = urllib.unquote(record).decode('utf8')
+    paths = record.split('/')
     prefix = '/'.join(paths[:-2]) + '/'
     localname = paths[-2]
     pre = prefixes.Prefixes()
     md_element = pre.value2key(prefix)
 
     # will we need to call custom code here for different types?
-    ShardFormSet = formset_factory(forms.ProvenanceForm, extra=0)
+    RecordFormSet = formset_factory(forms.ProvenanceForm, extra=0)
     warning_msg = ''
     if request.method == 'POST':
-        formset = ShardFormSet(request.POST)
+        formset = RecordFormSet(request.POST)
         if formset.is_valid():
-            process_formset(formset, shard, datatype)
+            process_formset(formset, record, datatype)
             return HttpResponseRedirect(
                 url_with_querystring(
                     reverse('edit', kwargs={'dataFormat':dataFormat,'datatype' : datatype}),
-                    ref=shard))
+                    ref=record))
         else:
             print formset.errors
     else:
-        ushardm = get_shard(shard, datatype)
-        if len(ushardm) > 1:
+        urecordm = get_record(record, datatype)
+        if len(urecordm) > 1:
             warning_msg = (
                 'Warning: '
-                '%s Active Data Shards with the same name found.' % (
-                    len(ushardm)#, status.upper()
+                '%s Active Data Records with the same origin found.' % (
+                    len(urecordm)
                     ))
         initial_data_set = []
-        for item in ushardm:
+        for item in urecordm:
             data_set = {}
             mapurl = item.get('prov')
             previousurl = item.get('previous')
             previouslabel = previousurl.split('/')[-1]
             data_set = dict(
                 provenanceMD5 = item.get('prov').split('/')[-1],
-                baseshardMD5 = item.get('link').split('/')[-1],
+                baserecordMD5 = item.get('link').split('/')[-1],
                 metadata_element = md_element,
                 local_name = localname,
                 current_status = item.get('status'),
@@ -135,20 +135,19 @@ def edit(request, dataFormat, datatype):
                 previous = mark_safe("%s" % previouslabel)
                 )
             initial_data_set.append(data_set)
-        formset = ShardFormSet(initial=initial_data_set)
+        formset = RecordFormSet(initial=initial_data_set)
     return render_to_response('main.html',
         RequestContext(request, {
-            'viewname' : 'Edit Shard',
+            'viewname' : 'Edit Record',
             #'status' : 'Status: %s, datatype: %s' % (status.upper(), datatype),
-            'title' : 'Edit Shard: %s' % shard,
-            'detail' : 'Shard: %s' % mapurl,#shard,
+            'title' : 'Edit Record: %s' % record,
+            'detail' : 'Record: %s' % mapurl,#record,
             'formset' : formset,
             'read_only' : READ_ONLY,
             'error' : warning_msg,
             }) )
 
-#def process_formset(formset, shard, status, datatype):
-def process_formset(formset, shard, datatype):        
+def process_formset(formset, record, datatype):        
     pre = prefixes.Prefixes()
 
     globalDateTime = datetime.datetime.now().isoformat()
@@ -156,7 +155,7 @@ def process_formset(formset, shard, datatype):
         data = form.cleaned_data
 
         mmd5 = hashlib.md5()
-        origin = shard
+        origin = record
         mmd5.update(origin)
         mmd5.update(data.get('unit'))
         mmd5.update(data.get('standard_name'))
@@ -174,7 +173,7 @@ def process_formset(formset, shard, datatype):
         provMD5.update(linkage)
 
         if len(get_link(linkage)) == 0:
-            
+            '''only run the insert if this is truely a new record'''
             insertDataStr = '''
                 <%s> a iso19135:RegisterItem ;
                     metExtra:origin <%s> ;
@@ -203,6 +202,7 @@ def process_formset(formset, shard, datatype):
 
 
         if len(get_map_by_attrs(mapAttrs)) == 0:
+            '''only run the insert if this is truely a new record'''            
             insertProvStr = '''
                 <%s> a iso19135:RegisterItem ;
                     metExtra:hasOwner     "%s" ;
@@ -248,30 +248,9 @@ def process_formset(formset, shard, datatype):
         
 
 # what shall we do here for multiple cfnames?
-def get_shard(shard, datatype):
-    '''This returns the actual shard from the named graph in the triple-store.'''
+def get_record(record, datatype):
+    '''This returns the mapping and linkage records from the default graph in the triple-store using the format specific 'origin' as the search key.'''
     
-    # qstr = '''
-    # SELECT DISTINCT ?previous ?cfname ?unit ?canon_unit ?last_edit ?long_name ?comment ?reason ?status ?prov ?link
-    # WHERE
-    # {
-    #     # drawing upon stash2cf.ttl as linkage
-    #     ?link metExtra:origin <%s> ;
-    #           metExtra:long_name ?long_name ;
-    #           cf:units ?unit ;
-    #           cf:name ?cfname .
-    #     ?prov metExtra:link ?link .
-    #     ?prov metExtra:hasPrevious ?previous ;
-    #             metExtra:hasLastEdit ?last_edit ;
-    #             metExtra:hasComment ?comment ;
-    #             metExtra:hasStatus ?status ;
-    #             metExtra:hasReason ?reason .
-    #     OPTIONAL {
-    #         # drawing upon cf-standard-name.ttl as endpoint
-    #         ?cfname cf:canonical_units ?canon_unit .
-    #     }
-    # } 
-    # ''' % (shard,)
     qstr = '''
     SELECT DISTINCT ?prov ?previous ?cfname ?unit ?canon_unit ?last_edit ?long_name ?comment ?reason ?status ?link
     WHERE
@@ -291,6 +270,7 @@ def get_shard(shard, datatype):
 
             ?cfname cf:canonical_units ?canon_unit .
         }
+        FILTER (?status NOT IN ("Deprecated", "Broken")) .
 
         {
           SELECT ?prov ?previous
@@ -303,16 +283,16 @@ def get_shard(shard, datatype):
           }  
         }
     } 
-    ''' % (shard,)
+    ''' % (record,)
     results = query.run_query(qstr)
     return results
 
-def shards(request):
+def records(request):
     # report in column view
     pass
 
 
-def shard_bulk_load(request):
+def record_bulk_load(request):
     # CSV file upload and report in column view for validation
     pass
 
@@ -397,7 +377,7 @@ def split_by_localname(item):
 
 def tasks(request):
     '''Top-level view.
-    This provides a list of the known 'data types' and  count of shards found within each.
+    This provides a list of the known 'data types' and  count of records found within each.
     '''
     
     datatype = models.DataType()
@@ -422,7 +402,7 @@ def url_with_querystring(path, **kwargs):
 def list(request, dataFormat):
     '''First level of detail.
     This view expands the chosen 'dataFormat' and displays all known subgraphs within it,
-    along with counts of shards within each subgraph.
+    along with counts of records within each subgraph.
     '''
     
     reportq = '''
@@ -438,7 +418,6 @@ def list(request, dataFormat):
     dataFormat_resultsd = count_by_group(count_results, split_by_type)
     for item in results:
         url = reverse('listtype', kwargs={
-            #'status' : status, 
             'dataFormat' : dataFormat, 'datatype':split_by_localname(item) })
         itemlist.append({
             'url'   : url, 
@@ -450,7 +429,6 @@ def list(request, dataFormat):
         RequestContext(request, {
             'title' : dataFormat.upper(),
             'viewname' : 'List',
-#            'status' : 'status: %s' % status.upper(),
             'itemlist' : sorted(itemlist, key=lambda x:x['label']),
             'read_only' : READ_ONLY,
             'count' : 'Records: %s' % dataFormat_resultsd.get(dataFormat),
@@ -458,7 +436,7 @@ def list(request, dataFormat):
 
 def listtype(request, dataFormat, datatype):
     '''Second level of detail.
-    This view lists the shards actually contained within the named graph
+    This view lists the records actually contained within the named graph
     and display the count.
     '''
     
@@ -483,21 +461,19 @@ def listtype(request, dataFormat, datatype):
         })
     return render_to_response('main.html',
         RequestContext(request, {
-#            'title' : 'Listing %s' % status.upper(),
             'viewname' : 'Listing',
- #           'status' : 'Status: %s' % status.upper(),
             'detail' : 'Datatype: %s' % datatype,
             'itemlist' : itemlist,
             'read_only' : READ_ONLY,
             'count' : 'Records: %s' % type_resultsd.get(split_by_datatype(datatype)),
-            'newshard' : reverse('newshard', kwargs={'dataFormat' : dataFormat,'datatype' : datatype}),
+            'newrecord' : reverse('newrecord', kwargs={'dataFormat' : dataFormat,'datatype' : datatype}),
             }) )
 
 def search(request):
     pass
 
 def mapdisplay(request, hashval):
-    '''Direct access to a Provenance and Mapping shard.
+    '''Direct access to a Provenance and Mapping record.
     Returns RDF but requires the correct mimetype to be set.
     '''
     
