@@ -58,7 +58,7 @@ def provenances(request):
     # report in column view
     pass
 
-def newshard(request, status, datatype):
+def newshard(request, dataFormat, datatype):
     ShardFormSet = formset_factory(forms.ProvenanceForm, extra=0)
     if request.method == 'POST':
         formset = ShardFormSet(request.POST)
@@ -70,20 +70,20 @@ def newshard(request, status, datatype):
 
         formset = ShardFormSet(initial=[
             {
-            'current_status' : status.lower(),
+#            'current_status' : status.lower(),
             'last_edit' : datetime.datetime.now(),
             }])
     return render_to_response('main.html',
         RequestContext(request, {
             'title' : 'New shard',
             'viewname' : 'New shard',
-            'status' : 'status: %s' % status.upper(),
+            #'status' : 'status: %s' % status.upper(),
             'detail' : 'Datatype: %s' % datatype,
             'read_only' : READ_ONLY,
             'formset' : formset,
             }) )
 
-def edit(request, datatype):
+def edit(request, dataFormat, datatype):
     shard = request.GET.get('ref', '')
     shard = urllib.unquote(shard).decode('utf8')
     #state = models.State(state=status)
@@ -102,7 +102,7 @@ def edit(request, datatype):
             process_formset(formset, shard, datatype)
             return HttpResponseRedirect(
                 url_with_querystring(
-                    reverse('edit', kwargs={'datatype' : datatype}),
+                    reverse('edit', kwargs={'dataFormat':dataFormat,'datatype' : datatype}),
                     ref=shard))
         else:
             print formset.errors
@@ -147,7 +147,8 @@ def edit(request, datatype):
             'error' : warning_msg,
             }) )
 
-def process_formset(formset, shard, status, datatype):
+#def process_formset(formset, shard, status, datatype):
+def process_formset(formset, shard, datatype):        
     pre = prefixes.Prefixes()
 
     globalDateTime = datetime.datetime.now().isoformat()
@@ -172,65 +173,64 @@ def process_formset(formset, shard, status, datatype):
         provMD5.update(data.get('reason'))
         provMD5.update(linkage)
 
-        # deleteDataStr = '''
-        #     <%s> a iso19135:RegisterItem ;
-        #         metExtra:origin <%s> ;
-        #         cf:units "%s" ;
-        #         cf:name <%s> .
-        # ''' % (
-        #     linkage,
-        #     origin,
-        #     data.get('unit'),
-        #     data.get('standard_name')
-        # )
+        if len(get_link(linkage)) == 0:
+            
+            insertDataStr = '''
+                <%s> a iso19135:RegisterItem ;
+                    metExtra:origin <%s> ;
+                    cf:units "%s" ;
+                    cf:name <%s> ;
+                    metExtra:saveCache "True" .
+            ''' % (
+                linkage,
+                origin,
+                data.get('unit'),
+                data.get('standard_name')
+            )
+        else:
+            insertDataStr = ''
+        #define the attributes of the mapping record    
+        mapAttrs = {
+            'owner':data.get('owner', 'None'),
+            'watcher':data.get('watcher', 'None'),
+            'editor':data.get('editor', 'None'),
+            'status':data.get('next_status'),
+            'comment':data.get('comment'),
+            'reason':data.get('reason'),
+            'linkage':linkage
+            }
 
-        insertDataStr = '''
-            <%s> a iso19135:RegisterItem ;
-                metExtra:origin <%s> ;
-                cf:units "%s" ;
-                cf:name <%s> ;
-                metExtra:saveCache "True" .
-        ''' % (
-            linkage,
-            origin,
-            data.get('unit'),
-            data.get('standard_name')
-        )
 
-        insertProvStr = '''
-            <%s> a iso19135:RegisterItem ;
-                metExtra:hasOwner     "%s" ;
-                metExtra:hasWatcher   "%s" ;
-                metExtra:hasEditor    "%s" ;
-                metExtra:hasStatus    "%s" ;
-                metExtra:hasPrevious  <%s> ;
-                metExtra:hasLastEdit  "%s" ;
-                metExtra:hasComment   "%s" ;
-                metExtra:hasReason    "%s" ;
-                metExtra:link         <%s> ;
-                metExtra:saveCache "True" .
-        ''' % (
-            '%s%s' % (pre.map, str(provMD5.hexdigest())),
-            data.get('owner', 'None'),
-            data.get('watcher', 'None'),
-            data.get('editor', 'None'),
-            data.get('next_status'),
-            hasPrevious,
-            datetime.datetime.now().isoformat(), # hasLastEdit updated with current time
-            data.get('comment'),
-            data.get('reason'),
-            linkage
-        )
 
-        # qstr = '''
-        # DELETE DATA {
-        #     %s
-        # }
-        # INSERT DATA {
-        #     %s
-        #     %s
-        # }
-        # ''' % (deleteDataStr, insertDataStr, insertProvStr)
+        if len(get_map_by_attrs(mapAttrs)) == 0:
+            insertProvStr = '''
+                <%s> a iso19135:RegisterItem ;
+                    metExtra:hasOwner     "%s" ;
+                    metExtra:hasWatcher   "%s" ;
+                    metExtra:hasEditor    "%s" ;
+                    metExtra:hasStatus    "%s" ;
+                    metExtra:hasPrevious  <%s> ;
+                    metExtra:hasLastEdit  "%s" ;
+                    metExtra:hasComment   "%s" ;
+                    metExtra:hasReason    "%s" ;
+                    metExtra:link         <%s> ;
+                    metExtra:saveCache "True" .
+            ''' % (
+                '%s%s' % (pre.map, str(provMD5.hexdigest())),
+                mapAttrs['owner'],
+                mapAttrs['watcher'],
+                mapAttrs['editor'],
+                mapAttrs['status'],
+                hasPrevious,
+                datetime.datetime.now().isoformat(), # hasLastEdit updated with current time
+                mapAttrs['comment'],
+                mapAttrs['reason'],
+                mapAttrs['linkage']
+
+            )
+        else:
+            insertProvStr = ''
+
 
         qstr = '''
         INSERT DATA {
@@ -251,27 +251,27 @@ def process_formset(formset, shard, status, datatype):
 def get_shard(shard, datatype):
     '''This returns the actual shard from the named graph in the triple-store.'''
     
-    qstr = '''
-    SELECT DISTINCT ?previous ?cfname ?unit ?canon_unit ?last_edit ?long_name ?comment ?reason ?status ?prov ?link
-    WHERE
-    {
-        # drawing upon stash2cf.ttl as linkage
-        ?link metExtra:origin <%s> ;
-              metExtra:long_name ?long_name ;
-              cf:units ?unit ;
-              cf:name ?cfname .
-        ?prov metExtra:link ?link .
-        ?prov metExtra:hasPrevious ?previous ;
-                metExtra:hasLastEdit ?last_edit ;
-                metExtra:hasComment ?comment ;
-                metExtra:hasStatus ?status ;
-                metExtra:hasReason ?reason .
-        OPTIONAL {
-            # drawing upon cf-standard-name.ttl as endpoint
-            ?cfname cf:canonical_units ?canon_unit .
-        }
-    } 
-    ''' % (shard,)
+    # qstr = '''
+    # SELECT DISTINCT ?previous ?cfname ?unit ?canon_unit ?last_edit ?long_name ?comment ?reason ?status ?prov ?link
+    # WHERE
+    # {
+    #     # drawing upon stash2cf.ttl as linkage
+    #     ?link metExtra:origin <%s> ;
+    #           metExtra:long_name ?long_name ;
+    #           cf:units ?unit ;
+    #           cf:name ?cfname .
+    #     ?prov metExtra:link ?link .
+    #     ?prov metExtra:hasPrevious ?previous ;
+    #             metExtra:hasLastEdit ?last_edit ;
+    #             metExtra:hasComment ?comment ;
+    #             metExtra:hasStatus ?status ;
+    #             metExtra:hasReason ?reason .
+    #     OPTIONAL {
+    #         # drawing upon cf-standard-name.ttl as endpoint
+    #         ?cfname cf:canonical_units ?canon_unit .
+    #     }
+    # } 
+    # ''' % (shard,)
     qstr = '''
     SELECT DISTINCT ?prov ?previous ?cfname ?unit ?canon_unit ?last_edit ?long_name ?comment ?reason ?status ?link
     WHERE
@@ -335,6 +335,44 @@ def get_counts_by_graph(graphurl=''):
     results = query.run_query(qstr)
     return results
 
+def get_link(linkID):
+    qstr = '''
+    SELECT ?s ?p ?o
+    WHERE
+    {
+    ?s ?p ?o.
+    FILTER (?s = <%s>)
+    }
+    ''' % linkID
+    results = query.run_query(qstr)
+    return results
+
+def get_map_by_attrs(mapAttrs):
+    qstr = '''
+    SELECT ?s ?p ?o
+    WHERE
+    {
+    ?s ?p ?o;
+        metExtra:hasOwner     "%s" ;
+        metExtra:hasWatcher   "%s" ;
+        metExtra:hasEditor    "%s" ;
+        metExtra:hasStatus    "%s" ;
+        metExtra:hasComment   "%s" ;
+        metExtra:hasReason    "%s" ;
+        metExtra:link         <%s> ;    
+    }
+    ''' % (
+        mapAttrs['owner'],
+        mapAttrs['watcher'],
+        mapAttrs['editor'],
+        mapAttrs['status'],
+        mapAttrs['comment'],
+        mapAttrs['reason'],
+        mapAttrs['linkage']
+        )
+    results = query.run_query(qstr)
+    return results
+
 def count_by_group(results, keyfunc):
     '''perform a grouped-summation based upon the provided callback.'''
     uniquetype = {}
@@ -368,7 +406,7 @@ def tasks(request):
     for item in datatype.get_datatypes:
         name = item.lower()
         itemlist.append( {
-            'url' : reverse('list', kwargs={'datatype' : name}),
+            'url' : reverse('list', kwargs={'dataFormat' : name}),
             'label' : item, 
             'count' : resultsd.get(name, 0),
         } )
@@ -381,9 +419,9 @@ def tasks(request):
 def url_with_querystring(path, **kwargs):
     return path + '?' + urllib.urlencode(kwargs)
 
-def list(request, datatype):
+def list(request, dataFormat):
     '''First level of detail.
-    This view expands the chosen 'datatype' and displays all known subgraphs within it,
+    This view expands the chosen 'dataFormat' and displays all known subgraphs within it,
     along with counts of shards within each subgraph.
     '''
     
@@ -393,15 +431,15 @@ def list(request, datatype):
             GRAPH ?g { ?s ?p ?o } .
             FILTER( REGEX(str(?g), 'http://%s/') ) .
         }
-    ''' % (datatype.lower(), )
+    ''' % (dataFormat.lower(), )
     results = query.run_query(reportq)
     itemlist = []
-    count_results = get_counts_by_graph('http://%s/' % datatype.lower())
-    datatype_resultsd = count_by_group(count_results, split_by_type)
+    count_results = get_counts_by_graph('http://%s/' % dataFormat.lower())
+    dataFormat_resultsd = count_by_group(count_results, split_by_type)
     for item in results:
         url = reverse('listtype', kwargs={
             #'status' : status, 
-            'datatype' : datatype })
+            'dataFormat' : dataFormat, 'datatype':split_by_localname(item) })
         itemlist.append({
             'url'   : url, 
             'label' : '%s' % item.get('g'), 
@@ -410,21 +448,21 @@ def list(request, datatype):
         })
     return render_to_response('lists.html',
         RequestContext(request, {
-            'title' : datatype.upper(),
+            'title' : dataFormat.upper(),
             'viewname' : 'List',
 #            'status' : 'status: %s' % status.upper(),
             'itemlist' : sorted(itemlist, key=lambda x:x['label']),
             'read_only' : READ_ONLY,
-            'count' : 'Records: %s' % datatype_resultsd.get(datatype),
+            'count' : 'Records: %s' % dataFormat_resultsd.get(dataFormat),
             }) )
 
-def listtype(request, datatype):
+def listtype(request, dataFormat, datatype):
     '''Second level of detail.
     This view lists the shards actually contained within the named graph
     and display the count.
     '''
     
-    graph = 'http://%s' % (datatype)
+    graph = 'http://%s/%s' % (dataFormat,datatype)
     qstr = '''
         SELECT DISTINCT ?subject
         WHERE {
@@ -434,25 +472,25 @@ def listtype(request, datatype):
         ORDER BY ?subject
     ''' % graph
     results = query.run_query(qstr)
-    type_resultsd = count_by_group(get_counts_by_graph(datatype), split_by_type)
+    type_resultsd = count_by_group(get_counts_by_graph(dataFormat), split_by_type)
     itemlist = []
     for item in [x.get('subject') for x in results]:
         itemlist.append({
             'url'   : url_with_querystring(
-                        reverse('edit', kwargs={'datatype' : datatype}),
+                        reverse('edit', kwargs={'dataFormat':dataFormat,'datatype' : datatype}),
                         ref=item),
             'label' : item,
         })
     return render_to_response('main.html',
         RequestContext(request, {
-            'title' : 'Listing %s' % status.upper(),
+#            'title' : 'Listing %s' % status.upper(),
             'viewname' : 'Listing',
-            'status' : 'Status: %s' % status.upper(),
+ #           'status' : 'Status: %s' % status.upper(),
             'detail' : 'Datatype: %s' % datatype,
             'itemlist' : itemlist,
             'read_only' : READ_ONLY,
             'count' : 'Records: %s' % type_resultsd.get(split_by_datatype(datatype)),
-            'newshard' : reverse('newshard', kwargs={'status' : status, 'datatype' : datatype}),
+            'newshard' : reverse('newshard', kwargs={'dataFormat' : dataFormat,'datatype' : datatype}),
             }) )
 
 def search(request):
