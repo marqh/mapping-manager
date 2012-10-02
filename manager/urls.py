@@ -24,7 +24,7 @@ import settings
 dataFormats = 'stash|grib'
 
 urlpatterns = patterns('manager.views',
-    url(r'^$', 'tasks', name='tasks'),
+    url(r'^$', 'formats', name='formats'),
     url(r'^list/(?P<dataFormat>(%s))/$' % dataFormats,
         'list', name='list'),
     url(r'^list/(?P<dataFormat>(%s))/(?P<datatype>[^/]+)/$' % dataFormats,
@@ -33,6 +33,6 @@ urlpatterns = patterns('manager.views',
         'newrecord', name='newrecord'),
     url(r'^edit/(?P<dataFormat>(%s))/(?P<datatype>[^/]+)/$' % dataFormats, 
         'edit', name='edit'),
-    url(r'^map/(?P<hashval>[a-f0-9]{32})/', 'mapdisplay', name='mapdisplay'),
+    url(r'^mapping/(?P<hashval>[a-f0-9]{32})/', 'mapdisplay', name='mapdisplay'),
     url(r'^search/$', 'search', name='search'),
 )

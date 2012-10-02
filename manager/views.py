@@ -85,6 +85,7 @@ def newrecord(request, dataFormat, datatype):
             }) )
 
 def edit(request, dataFormat, datatype):
+    '''form view to edit one or more records, retrieved based on a format specific origin'''
     record = request.GET.get('ref', '')
     record = urllib.unquote(record).decode('utf8')
     paths = record.split('/')
@@ -126,7 +127,7 @@ def edit(request, dataFormat, datatype):
                 metadata_element = md_element,
                 local_name = localname,
                 current_status = item.get('status'),
-                standard_name = item.get('cfname'),
+                standard_name = item.get('cfname'),#.split('/')[-1], this is right, but process_formset needs to be consistent
                 unit = item.get('unit'),
                 long_name = item.get('long_name'),
                 comment = item.get('comment'),
@@ -147,7 +148,8 @@ def edit(request, dataFormat, datatype):
             'error' : warning_msg,
             }) )
 
-def process_formset(formset, record, datatype):        
+def process_formset(formset, record, datatype):
+    '''ingest the form, if altered and push changes to the tdb via SPARQL queries'''
     pre = prefixes.Prefixes()
 
     globalDateTime = datetime.datetime.now().isoformat()
@@ -240,16 +242,13 @@ def process_formset(formset, record, datatype):
         ''' % (insertDataStr, insertProvStr)
 
 
-        print '12>>>>', qstr
-
         results = query.run_query(qstr, update=True)
-        print '13>>>>', results
-
         
 
-# what shall we do here for multiple cfnames?
 def get_record(record, datatype):
-    '''This returns the mapping and linkage records from the default graph in the triple-store using the format specific 'origin' as the search key.'''
+    '''This returns the mapping and linkage records from the default graph in the triple-store using the format specific 'origin' as the search key.
+    mappings are only returned if they are th elast entry in a hasPrevious chain and their status is not 'Deprecated' or 'Broken'
+    '''
     
     qstr = '''
     SELECT DISTINCT ?prov ?previous ?cfname ?unit ?canon_unit ?last_edit ?long_name ?comment ?reason ?status ?link
@@ -316,6 +315,8 @@ def get_counts_by_graph(graphurl=''):
     return results
 
 def get_link(linkID):
+    '''returns a link record for the given link ID
+    This is used to guard against creating multiple identical link records'''
     qstr = '''
     SELECT ?s ?p ?o
     WHERE
@@ -328,6 +329,9 @@ def get_link(linkID):
     return results
 
 def get_map_by_attrs(mapAttrs):
+    '''returns a mapping record using the subset of the mapping's attributes which define its nature
+    This is used to guard against creating multiple identical mapping records
+    '''
     qstr = '''
     SELECT ?s ?p ?o
     WHERE
@@ -375,7 +379,7 @@ def split_by_localname(item):
     name = item.get('g').split('/')[-1]
     return name
 
-def tasks(request):
+def formats(request):
     '''Top-level view.
     This provides a list of the known 'data types' and  count of records found within each.
     '''
@@ -390,9 +394,9 @@ def tasks(request):
             'label' : item, 
             'count' : resultsd.get(name, 0),
         } )
-    return render_to_response('tasks.html',
+    return render_to_response('formats.html',
         RequestContext(request, {
-            'title' : 'Tasks',
+            'title' : 'Formats',
             'itemlist' : itemlist,
             }) )
     

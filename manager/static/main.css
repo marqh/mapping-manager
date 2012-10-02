@@ -39,7 +39,7 @@ display: block;
 margin-bottom:25px;
 }
 
-div.task {
+div.format {
 height: 100%;    
 }
 
@@ -66,7 +66,7 @@ background: pink;
 text-decoration: none;
 }
 
-a.list , a.task 
+a.list , a.format 
 {
 display: block;
 border:2px solid blue;
@@ -79,7 +79,7 @@ text-decoration: none;
 }
 
 
-a.task
+a.format
 {
 border-radius:25px;
 padding:5px;
@@ -87,7 +87,7 @@ margin-top:5px;
 width: 25%;
 }
 
-a.task:hover , a.list:hover
+a.format:hover , a.list:hover
 {
 background: lightgreen;
 }
