@@ -58,6 +58,124 @@ def provenances(request):
     # report in column view
     pass
 
+
+def count_by_group(results, keyfunc):
+    '''perform a grouped-summation based upon the provided callback.'''
+    uniquetype = {}
+    for k, g in groupby(results, keyfunc):
+        uniquetype[k] = reduce(lambda x,y: int(x) + int(y), [x.get('count') for x in g], 0)
+    return uniquetype
+
+def split_by_datatype(name):
+    return name.split('.')[0]
+
+def split_by_type(item):
+    name = item.get('g').split('/')[2]
+    return split_by_datatype(name)
+
+
+def split_by_localname(item):
+    name = item.get('g').split('/')[-1]
+    return name
+
+def formats(request):
+    '''Top-level view.
+    This provides a list of the known 'data types' and  count of records found within each.
+    this view links to the 'list' view
+    '''
+    
+    datatype = models.DataType()
+    itemlist = []
+    resultsd = count_by_group(get_counts_by_graph(), split_by_type)
+    for item in datatype.get_datatypes:
+        name = item.lower()
+        itemlist.append( {
+            'url' : reverse('list', kwargs={'dataFormat' : name}),
+            'label' : item, 
+            'count' : resultsd.get(name, 0),
+        } )
+    return render_to_response('formats.html',
+        RequestContext(request, {
+            'title' : 'Formats',
+            'itemlist' : itemlist,
+            }) )
+    
+def url_with_querystring(path, **kwargs):
+    return path + '?' + urllib.urlencode(kwargs)
+
+def list(request, dataFormat):
+    '''First level of detail.
+    This view expands the chosen 'dataFormat' and displays all known subgraphs within it,
+    along with counts of records within each subgraph.
+    this view links to the 'listtype' view
+    '''
+    
+    reportq = '''
+        SELECT DISTINCT ?g
+        WHERE {
+            GRAPH ?g { ?s ?p ?o } .
+            FILTER( REGEX(str(?g), 'http://%s/') ) .
+        }
+    ''' % (dataFormat.lower(), )
+    results = query.run_query(reportq)
+    itemlist = []
+    count_results = get_counts_by_graph('http://%s/' % dataFormat.lower())
+    dataFormat_resultsd = count_by_group(count_results, split_by_type)
+    for item in results:
+        url = reverse('listtype', kwargs={
+            'dataFormat' : dataFormat, 'datatype':split_by_localname(item) })
+        itemlist.append({
+            'url'   : url, 
+            'label' : '%s' % item.get('g'), 
+            'count' : count_by_group(count_results, 
+                lambda x:x.get('g')).get(item.get('g')),
+        })
+    return render_to_response('lists.html',
+        RequestContext(request, {
+            'title' : dataFormat.upper(),
+            'viewname' : 'List',
+            'itemlist' : sorted(itemlist, key=lambda x:x['label']),
+            'read_only' : READ_ONLY,
+            'count' : 'Records: %s' % dataFormat_resultsd.get(dataFormat),
+            }) )
+
+def listtype(request, dataFormat, datatype):
+    '''Second level of detail.
+    This view lists the records actually contained within the named graph
+    and display the count.
+    this view links to the 'edit' or 'new' views
+    '''
+    
+    graph = 'http://%s/%s' % (dataFormat,datatype)
+    qstr = '''
+        SELECT DISTINCT ?subject
+        WHERE {
+            GRAPH <%s> { ?subject ?p ?o } .
+            FILTER( ?p != mos:header )
+        }
+        ORDER BY ?subject
+    ''' % graph
+    results = query.run_query(qstr)
+    type_resultsd = count_by_group(get_counts_by_graph(dataFormat), split_by_type)
+    itemlist = []
+    for item in [x.get('subject') for x in results]:
+        itemlist.append({
+            'url'   : url_with_querystring(
+                        reverse('edit', kwargs={'dataFormat':dataFormat,'datatype' : datatype}),
+                        ref=item),
+            'label' : item,
+        })
+    return render_to_response('main.html',
+        RequestContext(request, {
+            'viewname' : 'Listing',
+            'detail' : 'Datatype: %s' % datatype,
+            'itemlist' : itemlist,
+            'read_only' : READ_ONLY,
+            'count' : 'Records: %s' % type_resultsd.get(split_by_datatype(datatype)),
+            'newrecord' : reverse('newrecord', kwargs={'dataFormat' : dataFormat,'datatype' : datatype}),
+            }) )
+
+
 def newrecord(request, dataFormat, datatype):
     '''form view to create a new record'''
     RecordFormSet = formset_factory(forms.ProvenanceForm, extra=0)
@@ -149,7 +267,7 @@ def edit(request, dataFormat, datatype):
             }) )
 
 def process_formset(formset, record, datatype):
-    '''ingest the form, if altered and push changes to the tdb via SPARQL queries'''
+    '''ingest the form, 'new' or 'edit': if altered and push changes to the tdb via SPARQL queries'''
     pre = prefixes.Prefixes()
 
     globalDateTime = datetime.datetime.now().isoformat()
@@ -357,127 +475,12 @@ def get_map_by_attrs(mapAttrs):
     results = query.run_query(qstr)
     return results
 
-def count_by_group(results, keyfunc):
-    '''perform a grouped-summation based upon the provided callback.'''
-    uniquetype = {}
-    for k, g in groupby(results, keyfunc):
-        uniquetype[k] = reduce(lambda x,y: int(x) + int(y), [x.get('count') for x in g], 0)
-    return uniquetype
-
-def split_by_datatype(name):
-    return name.split('.')[0]
-
-def split_by_type(item):
-    name = item.get('g').split('/')[2]
-    return split_by_datatype(name)
-
-# def split_by_status(item):
-#     name = item.get('g').split('/')[2]
-#     return name
-
-def split_by_localname(item):
-    name = item.get('g').split('/')[-1]
-    return name
-
-def formats(request):
-    '''Top-level view.
-    This provides a list of the known 'data types' and  count of records found within each.
-    '''
-    
-    datatype = models.DataType()
-    itemlist = []
-    resultsd = count_by_group(get_counts_by_graph(), split_by_type)
-    for item in datatype.get_datatypes:
-        name = item.lower()
-        itemlist.append( {
-            'url' : reverse('list', kwargs={'dataFormat' : name}),
-            'label' : item, 
-            'count' : resultsd.get(name, 0),
-        } )
-    return render_to_response('formats.html',
-        RequestContext(request, {
-            'title' : 'Formats',
-            'itemlist' : itemlist,
-            }) )
-    
-def url_with_querystring(path, **kwargs):
-    return path + '?' + urllib.urlencode(kwargs)
-
-def list(request, dataFormat):
-    '''First level of detail.
-    This view expands the chosen 'dataFormat' and displays all known subgraphs within it,
-    along with counts of records within each subgraph.
-    '''
-    
-    reportq = '''
-        SELECT DISTINCT ?g
-        WHERE {
-            GRAPH ?g { ?s ?p ?o } .
-            FILTER( REGEX(str(?g), 'http://%s/') ) .
-        }
-    ''' % (dataFormat.lower(), )
-    results = query.run_query(reportq)
-    itemlist = []
-    count_results = get_counts_by_graph('http://%s/' % dataFormat.lower())
-    dataFormat_resultsd = count_by_group(count_results, split_by_type)
-    for item in results:
-        url = reverse('listtype', kwargs={
-            'dataFormat' : dataFormat, 'datatype':split_by_localname(item) })
-        itemlist.append({
-            'url'   : url, 
-            'label' : '%s' % item.get('g'), 
-            'count' : count_by_group(count_results, 
-                lambda x:x.get('g')).get(item.get('g')),
-        })
-    return render_to_response('lists.html',
-        RequestContext(request, {
-            'title' : dataFormat.upper(),
-            'viewname' : 'List',
-            'itemlist' : sorted(itemlist, key=lambda x:x['label']),
-            'read_only' : READ_ONLY,
-            'count' : 'Records: %s' % dataFormat_resultsd.get(dataFormat),
-            }) )
-
-def listtype(request, dataFormat, datatype):
-    '''Second level of detail.
-    This view lists the records actually contained within the named graph
-    and display the count.
-    '''
-    
-    graph = 'http://%s/%s' % (dataFormat,datatype)
-    qstr = '''
-        SELECT DISTINCT ?subject
-        WHERE {
-            GRAPH <%s> { ?subject ?p ?o } .
-            FILTER( ?p != mos:header )
-        }
-        ORDER BY ?subject
-    ''' % graph
-    results = query.run_query(qstr)
-    type_resultsd = count_by_group(get_counts_by_graph(dataFormat), split_by_type)
-    itemlist = []
-    for item in [x.get('subject') for x in results]:
-        itemlist.append({
-            'url'   : url_with_querystring(
-                        reverse('edit', kwargs={'dataFormat':dataFormat,'datatype' : datatype}),
-                        ref=item),
-            'label' : item,
-        })
-    return render_to_response('main.html',
-        RequestContext(request, {
-            'viewname' : 'Listing',
-            'detail' : 'Datatype: %s' % datatype,
-            'itemlist' : itemlist,
-            'read_only' : READ_ONLY,
-            'count' : 'Records: %s' % type_resultsd.get(split_by_datatype(datatype)),
-            'newrecord' : reverse('newrecord', kwargs={'dataFormat' : dataFormat,'datatype' : datatype}),
-            }) )
 
 def search(request):
     pass
 
 def mapdisplay(request, hashval):
-    '''Direct access to a Provenance and Mapping record.
+    '''Direct access to a Mapping record.
     Returns RDF but requires the correct mimetype to be set.
     '''
     
