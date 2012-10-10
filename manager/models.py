@@ -50,8 +50,9 @@ class State(object):
 
 class DataType(object):
     SUPPORTED_DATATYPES = (
-        'STASH',
-        'GRIB'
+        'UM',
+        'GRIB',
+        'CF'
         )
     def __init__(self, datatype=None):
         if datatype:

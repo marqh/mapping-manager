@@ -21,7 +21,7 @@ from django.conf.urls.defaults import patterns, include, url
 
 import settings
 
-dataFormats = 'stash|grib'
+dataFormats = 'um|grib|cf'
 
 urlpatterns = patterns('manager.views',
     url(r'^$', 'formats', name='formats'),

@@ -30,7 +30,8 @@ import forms
 import models
 import fusekiQuery as query
 
-import metOceanPrefixes as prefixes
+import metocean.prefixes as prefixes
+import metocean.queries as moq
 
 from settings import READ_ONLY
 
@@ -86,7 +87,7 @@ def formats(request):
     
     datatype = models.DataType()
     itemlist = []
-    resultsd = count_by_group(get_counts_by_graph(), split_by_type)
+    resultsd = count_by_group(moq.count_by_graph(), split_by_type)
     for item in datatype.get_datatypes:
         name = item.lower()
         itemlist.append( {
@@ -111,16 +112,18 @@ def list_format(request, dataFormat):
     this view links to the 'listtype' view
     '''
     
-    reportq = '''
-        SELECT DISTINCT ?g
-        WHERE {
-            GRAPH ?g { ?s ?p ?o } .
-            FILTER( REGEX(str(?g), 'http://%s/') ) .
-        }
-    ''' % (dataFormat.lower(), )
-    results = query.run_query(reportq)
+    # reportq = '''
+    #     SELECT DISTINCT ?g
+    #     WHERE {
+    #         GRAPH ?g { ?s ?p ?o } .
+    #         FILTER( REGEX(str(?g), 'http://%s/') ) .
+    #     }
+    # ''' % (dataFormat.lower(), )
+    # results = query.run_query(reportq)
+    graph = 'http://%s/' % dataFormat
+    results = moq.select_graph(graph)
     itemlist = []
-    count_results = get_counts_by_graph('http://%s/' % dataFormat.lower())
+    count_results = moq.counts_by_graph(graph)#(#get_counts_by_graph('http://%s/' % dataFormat.lower())
     dataFormat_resultsd = count_by_group(count_results, split_by_type)
     for item in results:
         url = reverse('listtype', kwargs={
@@ -149,17 +152,17 @@ def listtype(request, dataFormat, datatype):
     '''
     
     graph = 'http://%s/%s' % (dataFormat,datatype)
-    #list all subjects from the named graph, such as um/stash.vn8.3
-    qstr = '''
-        SELECT DISTINCT ?subject
-        WHERE {
-            GRAPH <%s> { ?subject ?p ?o } .
-            FILTER( ?p != mos:header )
-        }
-        ORDER BY ?subject
-    ''' % graph
-    results = query.run_query(qstr)
-    type_resultsd = count_by_group(get_counts_by_graph(dataFormat), split_by_type)
+    # qstr = '''
+    #     SELECT DISTINCT ?subject
+    #     WHERE {
+    #         GRAPH <%s> { ?subject ?p ?o } .
+    #         FILTER( ?p != mos:header )
+    #     }
+    #     ORDER BY ?subject
+    # ''' % graph
+    # results = query.run_query(qstr)
+    results = moq.subject_by_graph(graph)
+    type_resultsd = count_by_group(moq.count_by_graph(), split_by_type)
     itemlist = []
     for item in [x.get('subject') for x in results]:
         itemlist.append({
@@ -208,9 +211,9 @@ def newrecord(request, dataFormat, datatype):
 
 def edit(request, dataFormat, datatype):
     '''form view to edit one or more records, retrieved based on a format specific origin'''
-    record = request.GET.get('ref', '')
-    record = urllib.unquote(record).decode('utf8')
-    paths = record.split('/')
+    search_path = request.GET.get('ref', '')
+    search_path = [urllib.unquote(search_path).decode('utf8')]
+    paths = search_path.split('/')
     prefix = '/'.join(paths[:-2]) + '/'
     localname = paths[-2]
     pre = prefixes.Prefixes()
@@ -230,13 +233,12 @@ def edit(request, dataFormat, datatype):
         else:
             print formset.errors
     else:
-        urecordm = get_record(record, datatype)
+        urecordm = moq.mapping_by_link(dataFormat,search_path)
         if len(urecordm) > 1:
             warning_msg = (
                 'Warning: '
-                '%s Active Data Records with the same origin found.' % (
-                    len(urecordm)
-                    ))
+                '%s Active Data Records with the same format pattern found.' %
+                (len(urecordm)))
         initial_data_set = []
         for item in urecordm:
             data_set = {}
@@ -417,24 +419,24 @@ def record_bulk_load(request):
     # CSV file upload and report in column view for validation
     pass
 
-def get_counts_by_graph(graphurl=''):
-    '''This query relies on a feature of Jena that is not yet in the official
-    SPARQL v1.1 standard insofar as 'GRAPH ?g' has undetermined behaviour
-    under the standard but Jena interprets and treats the '?g' 
-    just like any other variable.
-    '''
+# def get_counts_by_graph(graphurl=''):
+#     '''This query relies on a feature of Jena that is not yet in the official
+#     SPARQL v1.1 standard insofar as 'GRAPH ?g' has undetermined behaviour
+#     under the standard but Jena interprets and treats the '?g' 
+#     just like any other variable.
+#     '''
     
-    qstr = '''
-        SELECT ?g (COUNT(DISTINCT ?s) as ?count)
-        WHERE {
-            GRAPH ?g { ?s ?p ?o } .
-            FILTER( REGEX(str(?g), '%s') ) .
-        }
-        GROUP by ?g
-        ORDER by ?g
-    ''' % graphurl
-    results = query.run_query(qstr)
-    return results
+#     qstr = '''
+#         SELECT ?g (COUNT(DISTINCT ?s) as ?count)
+#         WHERE {
+#             GRAPH ?g { ?s ?p ?o } .
+#             FILTER( REGEX(str(?g), '%s') ) .
+#         }
+#         GROUP by ?g
+#         ORDER by ?g
+#     ''' % graphurl
+#     results = query.run_query(qstr)
+#     return results
 
 def get_link(linkID):
     '''returns a link record for the given link ID
