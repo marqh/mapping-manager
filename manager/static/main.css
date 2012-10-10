@@ -5,7 +5,7 @@ margin-top: 0px;
 margin-bottom: 0px;
 }
 
-.shardtable, .shardbutton {
+.recordtable, .recordbutton {
 border: 1px solid black;
 border-radius:5px;
 background-color: cornsilk; 
@@ -16,10 +16,10 @@ margin-bottom: 5px;
 margin-top: 0px;
 }
 
-.shardbutton {
+.recordbutton {
 border: 2px solid blue;
 }
-.shardbutton:hover {
+.recordbutton:hover {
 background-color: lightblue;
 }
 

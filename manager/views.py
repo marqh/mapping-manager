@@ -213,23 +213,23 @@ def edit(request, dataFormat, datatype):
     '''form view to edit one or more records, retrieved based on a format specific origin'''
     search_path = request.GET.get('ref', '')
     search_path = [urllib.unquote(search_path).decode('utf8')]
-    paths = search_path.split('/')
-    prefix = '/'.join(paths[:-2]) + '/'
-    localname = paths[-2]
+    #paths = search_path.split('/')
+    #prefix = '/'.join(paths[:-2]) + '/'
+    #localname = paths[-2]
     pre = prefixes.Prefixes()
-    md_element = pre.value2key(prefix)
+    #md_element = pre.value2key(prefix)
 
     # will we need to call custom code here for different types?
-    RecordFormSet = formset_factory(forms.ProvenanceForm, extra=0)
+    MappingFormSet = formset_factory(forms.MappingForm, extra=0)
     warning_msg = ''
     if request.method == 'POST':
-        formset = RecordFormSet(request.POST)
+        formset = MappingFormSet(request.POST)
         if formset.is_valid():
-            process_formset(formset, record, datatype)
+            process_formset(formset, request, datatype)
             return HttpResponseRedirect(
                 url_with_querystring(
                     reverse('edit', kwargs={'dataFormat':dataFormat,'datatype' : datatype}),
-                    ref=record))
+                    ref=request))
         else:
             print formset.errors
     else:
@@ -242,31 +242,31 @@ def edit(request, dataFormat, datatype):
         initial_data_set = []
         for item in urecordm:
             data_set = {}
-            mapurl = item.get('prov')
+            mapurl = item.get('map')
             previousurl = item.get('previous')
             previouslabel = previousurl.split('/')[-1]
             data_set = dict(
-                provenanceMD5 = item.get('prov').split('/')[-1],
-                baserecordMD5 = item.get('link').split('/')[-1],
-                metadata_element = md_element,
-                local_name = localname,
+                mapping = item.get('map'),#.split('/')[-1],
+                linkage = item.get('link'),#.split('/')[-1],
+                last_edit = item.get('creation'),
+                last_editor = item.get('creator'),
                 current_status = item.get('status'),
-                standard_name = item.get('cfname'),#.split('/')[-1], this is right, but process_formset needs to be consistent
-                unit = item.get('unit'),
-                long_name = item.get('long_name'),
-                comment = item.get('comment'),
-                reason = item.get('reason'),
-                last_edit = item.get('last_edit'),
-                previous = mark_safe("%s" % previouslabel)
+                last_comment = item.get('comment'),
+                last_reason = item.get('reason'),
+                owners = item.get('owners'),
+                watchers = item.get('watchers'),
+                previous = mark_safe("%s" % previouslabel),
+                cflinks = item.get('cflinks'),
+                umlinks = item.get('umlinks'),
+                griblinks = item.get('griblinks')
                 )
             initial_data_set.append(data_set)
-        formset = RecordFormSet(initial=initial_data_set)
+        formset = MappingFormSet(initial=initial_data_set)
     return render_to_response('main.html',
         RequestContext(request, {
             'viewname' : 'Edit Record',
-            #'status' : 'Status: %s, datatype: %s' % (status.upper(), datatype),
-            'title' : 'Edit Record: %s' % record,
-            'detail' : 'Record: %s' % mapurl,#record,
+            'title' : 'Edit Record: %s' % request,
+#            'detail' : 'Record: %s' % mapurl,
             'formset' : formset,
             'read_only' : READ_ONLY,
             'error' : warning_msg,

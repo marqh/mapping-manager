@@ -67,14 +67,20 @@ $(document).ready(function(){
 {% if formset %}
 
 <form action="" method="post">
-<input class="shardbutton" type="submit" {% if read_only %}disabled="disabled"{% endif %} value="Submit Changes"/>
+<input class="recordbutton" type="submit" {% if read_only %}disabled="disabled"{% endif %} value="Submit Changes"/>
+<table class="recordtable">
+<tr>
 {% for form in formset %}
+<td>
 {% csrf_token %}
 {{ formset.management_form }}
-<table class="shardtable">
+<table class="recordtable">
 {{ form.as_table }}
 </table>
+</td>
 {% endfor %}
+</tr>
+</table?
 
 </form>
 
@@ -82,7 +88,7 @@ $(document).ready(function(){
 
 <div class="toplistbar">
 {% if not read_only %}
-<a href="{{ newshard }}" class="listbar">
+<a href="{{ newrecord }}" class="listbar">
     <div class="divleft">New...</div>
 </a>
 {% endif %}
