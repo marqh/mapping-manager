@@ -90,20 +90,21 @@ def formats(request):
     for item in datatype.get_datatypes:
         name = item.lower()
         itemlist.append( {
-            'url' : reverse('list', kwargs={'dataFormat' : name}),
+            'url' : reverse('list_format', kwargs={'dataFormat' : name}),
             'label' : item, 
             'count' : resultsd.get(name, 0),
         } )
-    return render_to_response('formats.html',
-        RequestContext(request, {
+    context = RequestContext(request, {
             'title' : 'Formats',
             'itemlist' : itemlist,
             }) )
-    
+     
+    return render_to_response('formats.html', context)
+        
 def url_with_querystring(path, **kwargs):
     return path + '?' + urllib.urlencode(kwargs)
 
-def list(request, dataFormat):
+def list_format(request, dataFormat):
     '''First level of detail.
     This view expands the chosen 'dataFormat' and displays all known subgraphs within it,
     along with counts of records within each subgraph.
@@ -130,14 +131,15 @@ def list(request, dataFormat):
             'count' : count_by_group(count_results, 
                 lambda x:x.get('g')).get(item.get('g')),
         })
-    return render_to_response('lists.html',
-        RequestContext(request, {
+    context = RequestContext(request, {
             'title' : dataFormat.upper(),
-            'viewname' : 'List',
+            'viewname' : 'List Format',
             'itemlist' : sorted(itemlist, key=lambda x:x['label']),
             'read_only' : READ_ONLY,
             'count' : 'Records: %s' % dataFormat_resultsd.get(dataFormat),
-            }) )
+            }) ) 
+    return render_to_response('list_formats.html', context)
+        
 
 def listtype(request, dataFormat, datatype):
     '''Second level of detail.
@@ -147,6 +149,7 @@ def listtype(request, dataFormat, datatype):
     '''
     
     graph = 'http://%s/%s' % (dataFormat,datatype)
+    #list all subjects from the named graph, such as um/stash.vn8.3
     qstr = '''
         SELECT DISTINCT ?subject
         WHERE {
@@ -165,8 +168,7 @@ def listtype(request, dataFormat, datatype):
                         ref=item),
             'label' : item,
         })
-    return render_to_response('main.html',
-        RequestContext(request, {
+    context = RequestContext(request, {
             'viewname' : 'Listing',
             'detail' : 'Datatype: %s' % datatype,
             'itemlist' : itemlist,
@@ -175,6 +177,8 @@ def listtype(request, dataFormat, datatype):
             'newrecord' : reverse('newrecord', kwargs={'dataFormat' : dataFormat,'datatype' : datatype}),
             }) )
 
+
+    return render_to_response('main.html', context)
 
 def newrecord(request, dataFormat, datatype):
     '''form view to create a new record'''
@@ -266,7 +270,7 @@ def edit(request, dataFormat, datatype):
             'error' : warning_msg,
             }) )
 
-def process_formset(formset, record, datatype):
+def process_formset(formset, record):
     '''ingest the form, 'new' or 'edit': if altered and push changes to the tdb via SPARQL queries'''
     pre = prefixes.Prefixes()
 
@@ -292,8 +296,8 @@ def process_formset(formset, record, datatype):
         provMD5.update(data.get('reason'))
         provMD5.update(linkage)
 
-        if len(get_link(linkage)) == 0:
-            '''only run the insert if this is truely a new record'''
+        if len(get_link(linkage)):
+            #only run the insert if this is truely a new record
             insertDataStr = '''
                 <%s> a iso19135:RegisterItem ;
                     metExtra:origin <%s> ;
@@ -321,8 +325,8 @@ def process_formset(formset, record, datatype):
 
 
 
-        if len(get_map_by_attrs(mapAttrs)) == 0:
-            '''only run the insert if this is truely a new record'''            
+        if get_map_by_attrs(mapAttrs):
+            #only run the insert if this is truely a new record            
             insertProvStr = '''
                 <%s> a iso19135:RegisterItem ;
                     metExtra:hasOwner     "%s" ;

@@ -39,7 +39,7 @@ class State(object):
             if state in [x.lower() for x in self.STATES]:
                 self.state = state
             else:
-                raise Exception('state not recognised')
+                raise ValueError('state not recognised')
 
     def __repr__(self):
         return self.state
@@ -49,16 +49,13 @@ class State(object):
         return self.STATES
 
 class DataType(object):
-    DATATYPES = (
+    SUPPORTED_DATATYPES = (
         'STASH',
         'GRIB'
         )
-    def __init__(self, *args, **kwargs):
-        datatype = kwargs.get('datatype', None)
-        #super(State, self).__init__(*args, **kwargs)
-        self.datatype = None
-        if datatype is not None:
-            if datatype in [x.lower() for x in self.DATATYPES]:
+    def __init__(self, datatype=None):
+        if datatype:
+            if datatype in [x.lower() for x in self.SUPPORTED_DATATYPES]:
                 self.datatype = datatype
             else:
                 raise Exception('datatype not recognised')
@@ -68,7 +65,7 @@ class DataType(object):
 
     @property
     def get_datatypes(self):
-        return self.DATATYPES
+        return self.SUPPORTED_DATATYPES
 
 class StateTransition(object):
     fromstate = None

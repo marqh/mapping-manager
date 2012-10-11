@@ -25,9 +25,9 @@ dataFormats = 'stash|grib'
 
 urlpatterns = patterns('manager.views',
     url(r'^$', 'formats', name='formats'),
-    url(r'^list/(?P<dataFormat>(%s))/$' % dataFormats,
-        'list', name='list'),
-    url(r'^list/(?P<dataFormat>(%s))/(?P<datatype>[^/]+)/$' % dataFormats,
+    url(r'^list_format/(?P<dataFormat>(%s))/$' % dataFormats,
+        'list_format', name='list_format'),
+    url(r'^list_format/(?P<dataFormat>(%s))/(?P<datatype>[^/]+)/$' % dataFormats,
         'listtype', name='listtype'),
     url(r'^new/(?P<dataFormat>(%s))/(?P<datatype>[^/]+)/$' % dataFormats, 
         'newrecord', name='newrecord'),
