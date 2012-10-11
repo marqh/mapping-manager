@@ -97,7 +97,7 @@ def formats(request):
     context = RequestContext(request, {
             'title' : 'Formats',
             'itemlist' : itemlist,
-            }) )
+            }) 
      
     return render_to_response('formats.html', context)
         
@@ -137,7 +137,7 @@ def list_format(request, dataFormat):
             'itemlist' : sorted(itemlist, key=lambda x:x['label']),
             'read_only' : READ_ONLY,
             'count' : 'Records: %s' % dataFormat_resultsd.get(dataFormat),
-            }) ) 
+            })  
     return render_to_response('list_formats.html', context)
         
 
@@ -175,7 +175,7 @@ def listtype(request, dataFormat, datatype):
             'read_only' : READ_ONLY,
             'count' : 'Records: %s' % type_resultsd.get(split_by_datatype(datatype)),
             'newrecord' : reverse('newrecord', kwargs={'dataFormat' : dataFormat,'datatype' : datatype}),
-            }) )
+            }) 
 
 
     return render_to_response('main.html', context)
