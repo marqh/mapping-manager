@@ -20,7 +20,7 @@ import datetime
 import time
 import sys
 
-from models import BaseShard, State, Provenance
+from models import BaseRecord, State, Provenance
 
 import metOceanPrefixes as prefixes
 
@@ -50,13 +50,13 @@ class BulkLoadForm(forms.Form):
         help_text = 'maximum size 2MB',
         required=False) 
 
-class ShardForm(forms.ModelForm):
+class RecordForm(forms.ModelForm):
     class Meta:
-        model = BaseShard
-        exclude = ('baseshardMD5',)
+        model = BaseRecord
+        exclude = ('baserecordMD5',)
 
     def __init__(self, *args, **kwargs):
-        super(ShardForm, self).__init__(*args, **kwargs)
+        super(RecordForm, self).__init__(*args, **kwargs)
         self.fields['current_status'] = forms.CharField(max_length=15)
         if self.initial.has_key('metadata_element'):
             self.fields['metadata_element'].widget.attrs['readonly'] = True
@@ -79,7 +79,7 @@ class ProvenanceForm(forms.ModelForm):
     isoformat = ("%Y-%m-%dT%H:%M:%S.%f",)
     class Meta:
         model = Provenance
-        # exclude = ('provenanceMD5', 'baseshardMD5', 'owners', 'version' )
+        # exclude = ('provenanceMD5', 'baserecordMD5', 'owners', 'version' )
         exclude = ('owners', 'version')
         widgets = {
             'standard_name' : forms.TextInput(attrs={'size' : 60}),
@@ -98,7 +98,7 @@ class ProvenanceForm(forms.ModelForm):
         self.fields['previous'].widget = URLwidget()
         self.fields['previous'].required = False
         self.fields['provenanceMD5'].widget = forms.HiddenInput()
-        self.fields['baseshardMD5'].widget = forms.HiddenInput()
+        self.fields['baserecordMD5'].widget = forms.HiddenInput()
         
         # now need to generate the 'editor', 'owners' and 'watchers' fields
         states = State()

@@ -14,7 +14,7 @@ $(document).ready(function(){
         ref = null;
         var searchstr = $('#search').val();
         if( searchstr == '' ){
-            $("div.task").show();
+            $("div.format").show();
         }else{
             console.time('foo');
             $('div.urllabel').each(function(){

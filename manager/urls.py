@@ -21,16 +21,18 @@ from django.conf.urls.defaults import patterns, include, url
 
 import settings
 
+dataFormats = 'stash|grib'
+
 urlpatterns = patterns('manager.views',
-    url(r'^$', 'tasks', name='tasks'),
-    url(r'^list/(?P<status>(draft|proposed|approved|broken|deprecated))/$',
-        'list', name='list'),
-    url(r'^list/(?P<status>(draft|proposed|approved|broken|deprecated))/(?P<datatype>[^/]+)/$',
+    url(r'^$', 'formats', name='formats'),
+    url(r'^list_format/(?P<dataFormat>(%s))/$' % dataFormats,
+        'list_format', name='list_format'),
+    url(r'^list_format/(?P<dataFormat>(%s))/(?P<datatype>[^/]+)/$' % dataFormats,
         'listtype', name='listtype'),
-    url(r'^new/(?P<status>(draft|proposed|approved|broken|deprecated))/(?P<datatype>[^/]+)/$', 
-        'newshard', name='newshard'),
-    url(r'^edit/(?P<status>(draft|proposed|approved|broken|deprecated))/(?P<datatype>[^/]+)/$', 
+    url(r'^new/(?P<dataFormat>(%s))/(?P<datatype>[^/]+)/$' % dataFormats, 
+        'newrecord', name='newrecord'),
+    url(r'^edit/(?P<dataFormat>(%s))/(?P<datatype>[^/]+)/$' % dataFormats, 
         'edit', name='edit'),
-    url(r'^map/(?P<hashval>[a-f0-9]{32})/', 'mapdisplay', name='mapdisplay'),
+    url(r'^mapping/(?P<hashval>[a-f0-9]{32})/', 'mapdisplay', name='mapdisplay'),
     url(r'^search/$', 'search', name='search'),
 )

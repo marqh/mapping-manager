@@ -41,7 +41,7 @@ $(document).ready(function(){
         ref = null;
         var searchstr = $('#search').val();
         if( searchstr == '' ){
-            $("div.task").show();
+            $("div.format").show();
         }else{
             console.time('foo');
             $('div.urllabel').each(function(){
@@ -94,7 +94,7 @@ $(document).ready(function(){
 </div>
 
 {% for item in itemlist %}
-<div class="task">
+<div class="format">
 <a href="{{ item.url }}" class="list">
     <div class="divleft urllabel">{{ item.label }}</div>
 </a>
