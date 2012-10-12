@@ -20,9 +20,7 @@ import datetime
 import time
 import sys
 
-from models import BaseRecord, State, Provenance
-
-import metOceanPrefixes as prefixes
+import metocean.prefixes as prefixes
 
 from settings import READ_ONLY
 from django import forms
@@ -32,6 +30,32 @@ from django.utils import formats
 from django.core.urlresolvers import reverse
 
 import metocean.queries as moq
+
+
+def get_states():
+
+    STATES = (
+        'Draft',
+        'Proposed',
+        'Approved',
+        'Broken',
+        'Deprecated',
+    )
+    return STATES
+
+def get_reasons():
+
+    REASONS = (
+        'new mapping',
+        'added metadata',
+        'corrected metadata',
+        'linked to new format',
+        'corrected links',
+        'changed status'
+        )
+    return REASONS
+
+
 
 class URLwidget(forms.TextInput):
     def render(self, name, value, attrs=None):
@@ -73,7 +97,9 @@ class RecordForm(forms.Form):
         else:
             return self.cleaned_data
 
-class MappingForm(forms.Form):
+    
+
+class MappingEditForm(forms.Form):
     required_css_class = 'required'
     error_css_class = 'error'
     isoformat = ("%Y-%m-%dT%H:%M:%S.%f",)
@@ -81,25 +107,26 @@ class MappingForm(forms.Form):
     linkage = forms.URLField()
     last_edit = forms.CharField(max_length=50)
     last_editor = forms.CharField(max_length=50)
-    editor = forms.CharField(max_length=50)
+    editor = forms.CharField(max_length=50, required=False)
     last_comment = forms.CharField(max_length=200)
-    comment = forms.CharField(max_length=200)
+    comment = forms.CharField(max_length=200,required=False)
     last_reason = forms.CharField(max_length=50)
-    reason = forms.CharField(max_length=50)
+    reason = forms.ChoiceField(choices=[(x,x) for x in get_reasons()])
     owners = forms.CharField(max_length=200)
-    add_owners = forms.CharField(max_length=200)
+    add_owners = forms.CharField(max_length=200, required=False)
+    remove_owners = forms.CharField(max_length=200, required=False)
     watchers = forms.CharField(max_length=200)
-    add_watchers = forms.CharField(max_length=200)
+    add_watchers = forms.CharField(max_length=200, required=False)
+    remove_watchers = forms.CharField(max_length=200, required=False)
     previous = forms.CharField(max_length=32)
     current_status = forms.CharField(max_length=15)
-    states = State()
-    next_status = forms.ChoiceField(choices=[(x,x) for x in states.get_states])
-    cflinks = forms.CharField(max_length=1000)
-    umlinks = forms.CharField(max_length=1000)
-    griblinks  = forms.CharField(max_length=1000)
+    next_status = forms.ChoiceField(choices=[(x,x) for x in get_states()])
+    cflinks = forms.CharField(max_length=1000, required=False)
+    umlinks = forms.CharField(max_length=1000, required=False)
+    griblinks  = forms.CharField(max_length=1000, required=False)
 
     def __init__(self, *args, **kwargs):
-        super(MappingForm, self).__init__(*args, **kwargs)
+        super(MappingEditForm, self).__init__(*args, **kwargs)
         pre = prefixes.Prefixes()
         self.fields['current_status'].widget.attrs['readonly'] = True
         self.fields['owners'].widget.attrs['readonly'] = True
@@ -116,23 +143,29 @@ class MappingForm(forms.Form):
         self.fields['cflinks'].widget = forms.HiddenInput()
         self.fields['umlinks'].widget = forms.HiddenInput()
         self.fields['griblinks'].widget = forms.HiddenInput()
-        cflinks = kwargs['initial']['cflinks']
-        if cflinks:
-            for i, cflink in enumerate(cflinks.split('&')):
-                for k,v in moq.get_cflink_by_id(cflink)[0].iteritems():
-                    self.fields['cflink%i_%s' % (i,k)] = forms.URLField(initial=v)
-                    self.fields['cflink%i_%s' % (i,k)].widget.attrs['readonly'] = True
-
-        umlinks = kwargs['initial']['umlinks']
-        if umlinks:
-            for i, umlink in enumerate(umlinks.split('&')):
-                self.fields['umlink%i' % i] = forms.URLField(initial=umlink)
-                self.fields['umlink%i' % i].widget.attrs['readonly'] = True
-        griblinks = kwargs['initial']['griblinks']
-        if griblinks:
-            for i, griblink in enumerate(griblinks.split('&')):
-                self.fields['griblink%i' % i] = forms.URLField(initial=griblink)
-                self.fields['griblink%i' % i].widget.attrs['readonly'] = True
+        if kwargs.has_key('initial'):
+            cflinks = None
+            if kwargs['initial'].has_key('cflinks'):
+                cflinks = kwargs['initial']['cflinks']
+            if cflinks:
+                for i, cflink in enumerate(cflinks.split('&')):
+                    for k,v in moq.get_cflink_by_id(cflink)[0].iteritems():
+                        self.fields['cflink%i_%s' % (i,k)] = forms.URLField(initial=v)
+                        self.fields['cflink%i_%s' % (i,k)].widget.attrs['readonly'] = True
+            umlinks = None
+            if kwargs['initial'].has_key('umlinks'):
+                umlinks = kwargs['initial']['umlinks']
+            if umlinks:
+                for i, umlink in enumerate(umlinks.split('&')):
+                    self.fields['umlink%i' % i] = forms.URLField(initial=umlink)
+                    self.fields['umlink%i' % i].widget.attrs['readonly'] = True
+            griblinks = None
+            if kwargs['initial'].has_key('cflinks'):
+                griblinks = kwargs['initial']['griblinks']
+            if griblinks:
+                for i, griblink in enumerate(griblinks.split('&')):
+                    self.fields['griblink%i' % i] = forms.URLField(initial=griblink)
+                    self.fields['griblink%i' % i].widget.attrs['readonly'] = True
 
 
     def clean(self):
@@ -149,4 +182,25 @@ class MappingForm(forms.Form):
             except ValueError:
                 continue
         raise forms.ValidationError("Invalid ISO DateTime format")
+
+
+class MappingNewForm(MappingEditForm):
+    reason = forms.CharField(max_length=15, initial='new mapping')
+    next_status = forms.CharField(max_length=15, initial='Draft')
+
+    def __init__(self, *args, **kwargs):
+        super(MappingNewForm, self).__init__(*args, **kwargs)
+        self.fields['last_edit'].widget = forms.HiddenInput()
+        self.fields['last_editor'].widget = forms.HiddenInput()
+        self.fields['last_comment'].widget = forms.HiddenInput()
+        self.fields['last_reason'].widget = forms.HiddenInput()
+        self.fields['owners'].widget = forms.HiddenInput()
+        self.fields['remove_owners'].widget = forms.HiddenInput()
+        self.fields['watchers'].widget = forms.HiddenInput()
+        self.fields['remove_watchers'].widget = forms.HiddenInput()
+        self.fields['current_status'].widget = forms.HiddenInput()
+        self.fields['reason'].widget.attrs['readonly'] = True
+        self.fields['next_status'].widget.attrs['readonly'] = True
+        
+        
 
